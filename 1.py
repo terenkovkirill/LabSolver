@@ -3,9 +3,8 @@ wb = openpyxl.reader.excel.load_workbook(filename = "Книга3.xlsx", data_onl
 wb.active = 0
 sheet = wb.active
 
-from statistics import mean
-from numpy import sqrt
-
+import numpy as np
+import matplotlib.pyplot as plt
 
 stop_param, i = 1, 1
 while sheet['A' + str(i)].value != None:
@@ -31,31 +30,59 @@ for i in range(stop_param - 3):
 # print('The average value for column_B = ', mean(column_B))
 # print('The average value for values_YX = ', mean(values_YX))
 # print('The average value for values_XX = ', mean(values_XX))
-k = mean(values_YX) / mean(values_XX)                                                                  # k = <YX> / <X^2>
-print('k = ', k)
+k = np.mean(values_YX) / np.mean(values_XX)                                                                  # k = <YX> / <X^2>
+print(f'k = {k}     b = 0')
 
 #==========================================================
 # #МНК для y = kx + b
 #
 # k = (mean(values_YX) - mean(column_A) * mean(column_B)) / (mean(values_XX) - mean(column_B)**2)          # k = (<XY> - <Y><X>) / (<X^2> - <X>^2)
 # b = mean(column_A) - k * mean(column_B)                                                                  # b = <Y> - k * <X>
-# print('k = ', k)
-# print('b = ', b)
+# print(f'k = {k}        b = {b}')
 
 #==========================================================
-# Случайная погрешность МНК для y = kx + b
+# Случайная погрешность (σ_k, σ_b) МНК для y = kx + b
 
-N = stop_param                                                                                          # N - количество измерений
-print((mean(values_YY) / mean(values_XX) - k**2) / (N - 2))
-σk = sqrt((mean(values_YY) / mean(values_XX) - k**2) / (N - 2))                                         # σk = sqrt((<Y^2> / <X^2> - k^2) / (N - 2))
-σb = σk * sqrt(mean(values_XX))                                                                         # σb = σk * sqrt(<X^2>)
-print('σk = ', σk, 'σb = ', σb)
+N = stop_param - 3    #TODO: изменить определение N                                                         # N - количество измерений
+
+σ_k = np.sqrt((np.mean(values_YY) / np.mean(values_XX) - k**2) / (N - 2))                                         # σk = sqrt((<Y^2> / <X^2> - k^2) / (N - 2))
+σ_b = σ_k * np.sqrt(np.mean(values_XX))                                                                        # σb = σk * sqrt(<X^2>)
+print('σ_k = ', σ_k, 'σ_b = ', σ_b)
+
+
+#==========================================================
+##Погрешности
+#Систематическая погрешность
+σx_syst = 0                  #TODO: добавить σx_syst
+
+#Случайная погрешность для точек графика
+
+std_dev = np.std(column_B, ddof = 1)                                                                     #стандартное отклонение
+σx_ind = std_dev                                                                                         #погрешность тодельных точек по X (то, что на графике)
+σx_rand = σx_ind / np.sqrt(N)                                                                            #погрешность средняя (для расчётов)
+σ_x = np.sqrt(σx_rand**2 + σx_syst**2)                                                                   #суммарная погрешность
+
+print(f'σx_rand = {σx_rand}     σx_syst = {σx_syst}       σ_x = {σ_x}')
+
+
+θ = 0.001                   #TODO: добавить множитель производной
+σy_syst = 0                 #TODO: добавить σy_syst
+σy_ind = θ * σx_ind                                                                                      #погрешность тодельных точек по Y (то, что на графике)
+σy_rand = σy_ind / np.sqrt(N)                                                                            #погрешность средняя (для расчётов)
+σ_y = np.sqrt(σy_rand**2 + σy_syst**2)
+print(f'σy_rand = {σy_rand}     σy_syst = {σy_syst}       σ_y = {σ_y}')
+
+
+#Для y = Ax^n
+#σ_y = n * y * σ_x / x
+#ε_y = n * ε_x
+
+#Для z = x^n * y^n
+#σ_z = sqrt((n*z*σ_x / x)**2 + (m*z*σ_y / y)**2)
+#ε_z = sqrt(n**2 * ε_x**2 + m**2 * ε_y**2)
 
 #===========================================================
-# График с МНК, линейная регрессия
-
-import numpy as np
-import matplotlib.pyplot as plt
+## График с МНК, линейная регрессия
 
 # Данные
 x = np.array(column_B)
@@ -73,15 +100,16 @@ print(f"Смещение (intercept): {intercept}")
 y_pred = slope * x + intercept
 
 # Визуализация
-plt.scatter(x, y, color = 'blue', label = 'Данные')
+plt.errorbar(x, y, xerr = σx_ind, yerr = σy_ind, fmt = 'o', color = 'blue', label = 'Данные с погрешностями X')
 plt.plot(x, y_pred, color = 'red', label = 'Линейная регрессия')
-plt.xlabel('Размерность по x')
+plt.xlabel('Размерность по x')                                  #TODO: сменить размерность
 plt.ylabel('Размерность по y')
-plt.title('График методом наименьших квадратов')
+plt.title('График y(x) по МНК')                                 #TODO: заменить y(x)
 plt.legend()
-plt.grid()                                                                  # отвечает за сетку на графике
+plt.grid()                                                                              # отвечает за сетку на графике
 plt.show()
 
 for i in range(1, stop_param):
     print(sheet['A' + str(i)].value, sheet['B' + str(i)].value, sheet['C' + str(i)].value, sheet['D' + str(i)].value, sep = '          ')
 
+#TODO: улучшить график (разобраться в функциях, подписи, несколько прямых, цвет и толщина шрифта)
